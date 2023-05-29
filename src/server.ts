@@ -1,7 +1,9 @@
 import 'express-async-errors';
+import { ZodError } from 'zod';
+import helmet from 'helmet';
 import swaggerUi from 'swagger-ui-express';
 import swaggerJSDoc from 'swagger-jsdoc';
-import helmet from 'helmet';
+import cors, { CorsOptions } from 'cors';
 import express, {
   type NextFunction,
   type Request,
@@ -10,7 +12,7 @@ import express, {
 import routes from './routes/index.js';
 import { AppMessage } from './utils/AppMessage.js';
 import db from './prisma/client.js';
-import { ZodError } from 'zod';
+import { limiter } from './middlewares/rateLimit.js';
 
 /**
  * @swagger
@@ -45,8 +47,24 @@ const swaggerDocs = swaggerJSDoc({
 
 const app = express();
 
-app.use(helmet());
+const whitelist = ['http://localhost:3000', process.env.AUTHORIZED];
 
+const corsOptions = {
+  origin: function (
+    origin: string,
+    callback: (err: Error | null, allow?: boolean) => void,
+  ) {
+    if (whitelist.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Acesso não permitido pelo CORS'));
+    }
+  },
+};
+
+app.use(limiter);
+app.use(helmet());
+app.use(cors(corsOptions as CorsOptions));
 app.use(express.json());
 app.use(express.static('upload'));
 
